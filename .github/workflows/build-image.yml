@@ -1,0 +1,110 @@
+# Module-G validation image build/push workflow.
+#
+# Mechanism canon: rp-drill/docs/module-g-prebaked-image-ruling.md §5.
+# Renovapro-app canon: docs/deploy/phase-9b-module-g-strategy-2-redesign-ruling.md
+# (including §22 runtime mc fetch posture clarification).
+# PR #78 §8 binding rule applies in full.
+#
+# This workflow is NOT executed by the Dockerfile-creation packet. The first
+# `workflow_dispatch` invocation is a separate, future, separately-authorized
+# rp-drill build-execution packet that captures the resulting image digest
+# in the institutional runbook for later capture into renovapro-app
+# Module-G §6.2 under its own separate authorization packet.
+#
+# All actions pinned by full 40-character commit SHA. The comment beside each
+# pin records the human-readable tag used to resolve the SHA via read-only
+# `git ls-remote` against the action's source repository at Dockerfile-creation
+# packet authorship time.
+
+name: build-image
+
+on:
+  workflow_dispatch:
+    # Manual-only trigger. NO push trigger. NO pull_request trigger.
+    # NO schedule trigger. The first run is a separate, future,
+    # separately-authorized rp-drill build-execution packet.
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: build-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and push rp-drill-client image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout rp-drill at the dispatched ref
+        uses: actions/checkout@eef61447b9ff4aafe5dcd4e0bbf5d482be7e7871 # v4.2.1
+        with:
+          fetch-depth: 1
+
+      - name: Verify v.sh SHA256 (build-time defense-in-depth)
+        run: |
+          set -euo pipefail
+          echo "Verifying v.sh against v.sh.sha256 sidecar..."
+          sha256sum -c v.sh.sha256
+
+          EXPECTED="daa6f65a6894d5cdb43df26277aed050be7a462a4d42c1ce90f12e97a241596d"
+          OBSERVED="$(sha256sum v.sh | awk '{print $1}')"
+          if [ "$OBSERVED" != "$EXPECTED" ]; then
+            echo "::error::v.sh SHA256 drift detected"
+            echo "expected: $EXPECTED"
+            echo "observed: $OBSERVED"
+            echo "STOP. Reconcile against renovapro-app Module E.4 / Module-G inherited canon."
+            exit 1
+          fi
+          echo "v.sh SHA256 OK: $OBSERVED"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push rp-drill-client image
+        id: build-push
+        uses: docker/build-push-action@ee4ca427a2f43b6a16632044ca514c076267da23 # v6.19.0
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          # Tag for human navigation only. RUNTIME AUTHORITY IS THE DIGEST,
+          # captured in the next step. Tags MUST NOT be used as runtime
+          # authority per Module-G ruling §5 / rp-drill ruling §4.2.
+          tags: |
+            ghcr.io/edwargamez555-sys/rp-drill-client:rp-drill-${{ github.sha }}
+          # Provenance / SBOM / signing all deferred to separate future rulings.
+          provenance: false
+          sbom: false
+
+      - name: Emit runtime image digest
+        run: |
+          set -euo pipefail
+          DIGEST="${{ steps.build-push.outputs.digest }}"
+          if [ -z "$DIGEST" ]; then
+            echo "::error::No digest emitted by build-push-action"
+            exit 1
+          fi
+          echo ""
+          echo "============================================================"
+          echo "RUNTIME-PIN-FOR-renovapro-app-MODULE-G-§6.2:"
+          echo ""
+          echo "  ghcr.io/edwargamez555-sys/rp-drill-client@${DIGEST}"
+          echo ""
+          echo "Operator: capture this digest in the institutional runbook"
+          echo "(timestamp UTC + Europe/Berlin; workflow run id; rp-drill"
+          echo "commit pin) per rp-drill ruling §6 + Module-G §6.2."
+          echo "Pin is written into renovapro-app Module-G §6.2 only by a"
+          echo "separate, future, separately-authorized renovapro-app"
+          echo "digest-pin-capture packet."
+          echo "============================================================"
+          # Emit as a job output for any future caller workflow.
+          echo "image_digest=${DIGEST}" >> "$GITHUB_OUTPUT"

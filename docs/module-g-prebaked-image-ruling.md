@@ -257,3 +257,49 @@ Operational consequences specific to rp-drill:
 4. Exploratory variants of the build mechanism (alternate registries, alternate base images, alternate `dockerCommand` shapes other than empty / inert, alternate fetch endpoints, alternate `mc` releases, alternate `v.sh` versions) are themselves a mutation surface and must be ruled in their own docs-anchored packets before execution.
 
 PR #78's binding rule is additive to — not a replacement for — the Strategy 1 closeout's forward gate, the Module E.4 non-authorization block, Module-G's non-authorization block, Module F-0's non-authorization block, and this rp-drill ruling's §10 + §14 non-authorization.
+
+## 16. Forward pointer — Dockerfile and workflow created, not executed
+
+Under a separately-authorized rp-drill Dockerfile-creation packet, the executable artifacts named in §5 of this ruling now exist in this repository:
+
+- `Dockerfile` — present at the repo root.
+- `.github/workflows/build-image.yml` — present.
+
+**This pointer does NOT change any of §1–§15.** It records that the authoring step has been performed. The executable artifacts are present in the repo but **none of them has been executed by the packet that created them.**
+
+Specifically:
+
+- **No image was built.** No `docker build` ran during the Dockerfile-creation packet. No image exists at `ghcr.io/edwargamez555-sys/rp-drill-client` yet.
+- **No GHCR push happened.** No `docker login` against `ghcr.io`, no `docker push`, no manifest upload, no tag creation in any registry.
+- **No digest was captured.** The runtime image digest pin in renovapro-app Module-G §6.2 still reads `TO BE CAPTURED`.
+- **No `workflow_dispatch` was invoked.** The workflow file is `workflow_dispatch`-only by design (no `push` / `pull_request` / `schedule` trigger), and even that single trigger was NOT invoked by the Dockerfile-creation packet.
+- **No `v.sh` execution occurred.** No `mc` was downloaded. No MinIO interaction of any kind. No Render touch.
+- **No PR merge of this Dockerfile-creation packet authorizes a subsequent run.** Each subsequent step is its own future, separately-authorized packet (see §11 of this ruling).
+
+Under Path B of the Module-G runtime mc fetch clarification (renovapro-app PR #85, appended as Module-G §22), the `Dockerfile` here:
+
+- Bakes the canonical `v.sh` from rp-drill commit `bb350f79512b629945f6bb831f86e794340b90a0` at `/v.sh`, with build-time SHA256 verification against `daa6f65a6894d5cdb43df26277aed050be7a462a4d42c1ce90f12e97a241596d`.
+- Bakes only `wget` and `ca-certificates` as runtime APK dependencies (the minimum `v.sh` needs for its runtime mc fetch).
+- **Does NOT bake `mc`** at `/usr/local/bin/mc` or any other path. `v.sh` continues to fetch `mc` from `dl.min.io` at runtime and SHA256-verify it against `MC_SHA256` (`01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891`) per Module E.4 / Module E.2 discipline, exactly as `v.sh` has always done.
+- Sets `ENTRYPOINT ["/bin/sh", "/v.sh"]`. The Render Cron Job's `dockerCommand` under Module-G is empty / inert; this `ENTRYPOINT` delivers the validation logic, bypassing Render's shell parser entirely. **That is Module-G's actual structural fix vs Strategy 1.**
+- Pins the Alpine base by `tag@sha256:digest` form (`docker.io/library/alpine:3.22.4@sha256:310c62b5e7ca5b08167e4384c68db0fd2905dd9c7493756d356e893909057601`). Digest captured read-only via Docker Hub registry HTTP API at packet authorship time; no `docker pull` was performed.
+
+Under §5.3 of this ruling, the `.github/workflows/build-image.yml`:
+
+- Triggers on `workflow_dispatch` only; no automatic build on push, PR, or schedule.
+- Uses workflow-scoped `GITHUB_TOKEN` with `permissions: { contents: read, packages: write }` only; no PAT, no extra secret.
+- Pins all four actions (`actions/checkout`, `docker/setup-buildx-action`, `docker/login-action`, `docker/build-push-action`) by full 40-character commit SHA, with the human-readable tag preserved as a comment beside each pin.
+- Performs build-time SHA256 verification of `v.sh` (defense-in-depth, redundant with the Dockerfile's own build-time SHA256 check).
+- Builds and pushes the image to `ghcr.io/edwargamez555-sys/rp-drill-client` with a tag of the form `rp-drill-<commit-sha>` for human navigation only.
+- Emits the resulting image digest as a job output and as a clearly-marked log line so a future operator running the build-execution packet can copy the digest into the institutional runbook for later capture into renovapro-app Module-G §6.2 under its own separate authorization.
+- Does **NOT** build for multiple platforms (amd64-only — Render Cron Job runs on amd64).
+- Does **NOT** sign the image, emit SLSA provenance, or emit SBOM (each deferred to a future separate ruling).
+
+**Forward steps** (each remains a distinct future, separately-authorized packet, none implied by the existence of these artifacts):
+
+1. **rp-drill build-execution packet** — operator invokes `workflow_dispatch` against the workflow defined here under separate authorization. Captures the resulting image digest (`ghcr.io/edwargamez555-sys/rp-drill-client@sha256:<digest>`) in the institutional runbook.
+2. **renovapro-app digest-pin-capture packet** — a docs-only PR in renovapro-app updates `phase-9b-module-g-strategy-2-redesign-ruling.md` §6.2 to replace `TO BE CAPTURED` with the observed digest.
+3. **Module F-0 execution packet** — operator runs the Module F-0 preflight protocol against renovapro-app's live main HEAD; with the digest captured, the verdict can be `MODULE_F0_PREFLIGHT_READY_FOR_MODULE_G_EXECUTION_PACKET`.
+4. **Module-G execution packet** — operator runs the actual Render-side drill against `rp-minio-drill` + `rp-minio-drill-client` with the digest-pinned image.
+
+**Module-G execution remains NOT AUTHORIZED.** **Module F-0 execution remains NOT AUTHORIZED.** **Module F retry remains NOT AUTHORIZED.** This forward pointer does not change any of those gates.
