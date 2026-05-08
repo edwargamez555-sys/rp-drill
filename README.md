@@ -59,3 +59,7 @@ The existence of this repository does **NOT** authorize:
 - Marking MinIO Stage 1 satisfied.
 
 Authorization for any of the above lives in `renovapro-app` rulings, not here.
+
+## Module-G build/image ruling (rp-drill side)
+
+The build / push / digest-capture mechanism for the future Module-G validation image at `ghcr.io/edwargamez555-sys/rp-drill-client` is ruled at the document level in [`docs/module-g-prebaked-image-ruling.md`](./docs/module-g-prebaked-image-ruling.md). That ruling pins four tokens (`RP_DRILL_BUILD_IMAGE_MECHANISM_RULED`, `RP_DRILL_BUILD_IMAGE_EXECUTION_NOT_AUTHORIZED`, `RP_DRILL_GOVERNED_BY_RENOVAPRO_APP_CANON`, `RP_DRILL_INHERITS_PR78_PR80_PR82_GOVERNANCE`) and enumerates the build workflow shape, digest capture procedure, supply-chain posture, retention/rollback rules, and token / credential discipline that any future Dockerfile-creation / build-execution / digest-pin-capture / Module F-0 / Module-G execution packet must satisfy. The ruling is **mechanism-level only**: it does NOT author a Dockerfile, does NOT author a `.github/workflows/*.yml` file, does NOT build an image, does NOT push to GHCR, does NOT capture a digest, and does NOT authorize Module-G execution. See also [`CLAUDE.md`](./CLAUDE.md) for the assistant-side governance contract.
