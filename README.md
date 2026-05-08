@@ -10,7 +10,7 @@ A minimal, content-addressable, public host for a single non-secret shell script
 
 - Not a production repo.
 - Not a code mirror of `renovapro-app`.
-- Not a credential store. **No secrets, no env files, no Render tokens, no GitHub PATs, no MinIO root keys, no MinIO drill access/secret keys**, no IP addresses, no internal hostnames are stored here.
+- Not a credential store. **No secrets, no env files, no Render tokens, no GitHub PATs, no MinIO root keys, no MinIO drill access/secret keys**, no IP addresses, and no production or staging hostnames are stored here. The only internal-hostname references in this repo are the **governance-approved temporary drill resource names** `rp-minio-drill` (the temporary MinIO drill server) and `rp-minio-drill-client` (the temporary Cron Job that runs `v.sh`); both are non-secret per the Module E lineage and exist only during the drill window.
 - Not a runtime environment. The script is **not executed** by anything in this repo (no CI, no Actions, no Pages).
 - Not a place to put the production validation logic from `renovapro-app`.
 
